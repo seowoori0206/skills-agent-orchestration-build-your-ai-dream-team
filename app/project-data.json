@@ -1,0 +1,36 @@
+{
+  "projects": [
+    {
+      "name": "Contributor Onboarding",
+      "owner": "Maya Chen",
+      "status": "Active",
+      "recentActivity": "Published the refreshed setup guide on August 26.",
+      "priority": "High",
+      "summary": "Reduce time to first contribution with clearer local setup and starter issues."
+    },
+    {
+      "name": "API Reliability",
+      "owner": "Jordan Patel",
+      "status": "At risk",
+      "recentActivity": "Opened a follow-up investigation into intermittent staging timeouts.",
+      "priority": "High",
+      "summary": "Improve service resilience and make operational signals easier for contributors to act on."
+    },
+    {
+      "name": "Design System Refresh",
+      "owner": "Alex Rivera",
+      "status": "In progress",
+      "recentActivity": "Merged the accessible form-field patterns and started button documentation.",
+      "priority": "Medium",
+      "summary": "Create reusable interface patterns that keep the contributor experience consistent."
+    },
+    {
+      "name": "Release Automation",
+      "owner": "Sam Okafor",
+      "status": "Planning",
+      "recentActivity": "Collected feedback from maintainers on the proposed release checklist.",
+      "priority": "Medium",
+      "summary": "Make routine releases more predictable with a shared, documented workflow."
+    }
+  ]
+}

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Project Pulse</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="dashboard dashboard-header">
+        <p class="eyebrow">Team workspace</p>
+        <h1>Project Pulse</h1>
+        <p class="header-summary">
+          A quick view of active work, ownership, and the next signal contributors need.
+        </p>
+      </div>
+    </header>
+
+    <main class="dashboard" aria-labelledby="page-heading" aria-busy="true">
+      <section class="dashboard-intro" aria-labelledby="page-heading">
+        <div>
+          <p class="eyebrow">Current portfolio</p>
+          <h2 id="page-heading">Projects at a glance</h2>
+        </div>
+        <p id="project-count" class="project-count"></p>
+      </section>
+
+      <p id="loading-state" class="state-message" role="status" aria-live="polite">
+        Loading projects...
+      </p>
+
+      <section id="empty-state" class="state-message" aria-labelledby="empty-heading" hidden>
+        <h2 id="empty-heading">No projects to show</h2>
+        <p>Project updates will appear here once the team adds a project.</p>
+      </section>
+
+      <section id="error-state" class="state-message" aria-labelledby="error-heading" hidden>
+        <h2 id="error-heading">Projects could not be loaded</h2>
+        <p id="error-message">
+          Check the project data and refresh the page to try again.
+        </p>
+      </section>
+
+      <section id="projects-section" aria-labelledby="projects-heading" hidden>
+        <h2 id="projects-heading" class="visually-hidden">Project list</h2>
+        <div id="project-list" class="project-grid"></div>
+      </section>
+    </main>
+
+    <script>
+      const dashboard = document.querySelector("main");
+      const loadingState = document.querySelector("#loading-state");
+      const emptyState = document.querySelector("#empty-state");
+      const errorState = document.querySelector("#error-state");
+      const errorMessage = document.querySelector("#error-message");
+      const projectsSection = document.querySelector("#projects-section");
+      const projectList = document.querySelector("#project-list");
+      const projectCount = document.querySelector("#project-count");
+
+      const requiredFields = [
+        "name",
+        "owner",
+        "status",
+        "recentActivity",
+        "priority"
+      ];
+
+      function isRecord(value) {
+        return value !== null && typeof value === "object" && !Array.isArray(value);
+      }
+
+      function getRequiredText(project, field, projectNumber) {
+        if (typeof project[field] !== "string" || project[field].trim() === "") {
+          throw new Error(
+            `Project ${projectNumber} is missing the required ${field} field.`
+          );
+        }
+
+        return project[field].trim();
+      }
+
+      function normalizeProjects(data) {
+        if (!isRecord(data) || !Array.isArray(data.projects)) {
+          throw new Error("Project data must include a top-level projects array.");
+        }
+
+        return data.projects.map((project, index) => {
+          if (!isRecord(project)) {
+            throw new Error(`Project ${index + 1} must be an object.`);
+          }
+
+          const normalizedProject = {};
+          requiredFields.forEach((field) => {
+            normalizedProject[field] = getRequiredText(project, field, index + 1);
+          });
+          normalizedProject.summary =
+            typeof project.summary === "string" && project.summary.trim() !== ""
+              ? project.summary.trim()
+              : "No contributor summary is available yet.";
+
+          return normalizedProject;
+        });
+      }
+
+      function addTextElement(parent, tagName, className, text) {
+        const element = document.createElement(tagName);
+        element.className = className;
+        element.textContent = text;
+        parent.appendChild(element);
+        return element;
+      }
+
+      function createDetail(label, value) {
+        const container = document.createElement("div");
+        container.className = "project-detail";
+        addTextElement(container, "dt", "project-detail-label", label);
+        addTextElement(container, "dd", "project-detail-value", value);
+        return container;
+      }
+
+      function createProjectCard(project) {
+        const card = document.createElement("article");
+        card.className = "project-card";
+
+        const cardHeader = document.createElement("header");
+        cardHeader.className = "project-card-header";
+        addTextElement(cardHeader, "h3", "project-name", project.name);
+        const status = addTextElement(
+          cardHeader,
+          "span",
+          "status-badge",
+          project.status
+        );
+        status.setAttribute("aria-label", `Status: ${project.status}`);
+        card.appendChild(cardHeader);
+
+        const summary = addTextElement(
+          card,
+          "p",
+          "project-summary",
+          project.summary
+        );
+        summary.setAttribute("aria-label", `Summary: ${project.summary}`);
+
+        const details = document.createElement("dl");
+        details.className = "project-details";
+        details.appendChild(createDetail("Owner", project.owner));
+        details.appendChild(createDetail("Recent activity", project.recentActivity));
+        const priority = createDetail("Priority", project.priority);
+        priority.querySelector(".project-detail-value").setAttribute(
+          "aria-label",
+          `Priority: ${project.priority}`
+        );
+        details.appendChild(priority);
+        card.appendChild(details);
+
+        return card;
+      }
+
+      function showState(state) {
+        loadingState.hidden = state !== "loading";
+        emptyState.hidden = state !== "empty";
+        errorState.hidden = state !== "error";
+        projectsSection.hidden = state !== "projects";
+        dashboard.setAttribute("aria-busy", state === "loading" ? "true" : "false");
+      }
+
+      function renderProjects(projects) {
+        projectList.replaceChildren();
+        projects.forEach((project) => {
+          projectList.appendChild(createProjectCard(project));
+        });
+        projectCount.textContent = `${projects.length} ${
+          projects.length === 1 ? "project" : "projects"
+        }`;
+        showState("projects");
+      }
+
+      async function loadProjects() {
+        showState("loading");
+
+        try {
+          const response = await fetch("project-data.json", {
+            headers: { Accept: "application/json" }
+          });
+          if (!response.ok) {
+            throw new Error(`Project data request failed with status ${response.status}.`);
+          }
+
+          const projects = normalizeProjects(await response.json());
+          if (projects.length === 0) {
+            projectCount.textContent = "0 projects";
+            showState("empty");
+            return;
+          }
+
+          renderProjects(projects);
+        } catch (error) {
+          errorMessage.textContent =
+            error instanceof Error
+              ? error.message
+              : "An unexpected error prevented project data from loading.";
+          projectCount.textContent = "";
+          showState("error");
+        }
+      }
+
+      loadProjects();
+    </script>
+  </body>
+</html>
